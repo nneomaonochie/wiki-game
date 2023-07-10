@@ -1,6 +1,13 @@
 body {
     max-width: 1000px;
     margin: auto;
-    background: #ffc9e5;
+    background: #ffddef;
     font-family: cursive;
+
+}
+
+p {
+    justify-content: space-between;
+    writing-mode: vertical-rl;
+    text-orientation: sideways;
 }

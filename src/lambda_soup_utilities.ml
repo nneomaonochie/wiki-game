@@ -12,19 +12,36 @@ let get_list_items contents : string list =
   parse contents
   $$ "li"
   |> to_list
-  |> List.map ~f:(fun li -> texts li |> String.concat ~sep:"" |> String.strip)
+  |> List.map ~f:(fun li ->
+       texts li |> String.concat ~sep:"" |> String.strip)
 ;;
 
 (* Gets the first item of all unordered lists contained in an HTML page. *)
 let get_first_item_of_all_unordered_lists contents : string list =
-  ignore (contents : string);
-  failwith "TODO"
+  let open Soup in
+  parse contents
+  $$ "ul"
+  |> filter_map (fun node -> node $? "li")
+  |> to_list
+  |> List.map ~f:(fun li ->
+       texts li |> String.concat ~sep:"" |> String.strip)
 ;;
 
 (* Gets the first item of the second unordered list in an HTML page. *)
 let get_first_item_of_second_unordered_list contents : string =
-  ignore (contents : string);
-  failwith "TODO"
+  let open Soup in
+  let all_uls = parse contents $$ "ul" |> to_list in
+  if List.length all_uls < 2
+  then "None"
+  else (
+    let second_ul = List.nth_exn all_uls 1 in
+    second_ul
+    $$ "li"
+    |> to_list
+    |> List.hd_exn
+    |> texts
+    |> String.concat ~sep:""
+    |> String.strip)
 ;;
 
 (* Gets all bolded text from an HTML page. *)
@@ -33,10 +50,10 @@ let get_bolded_text contents : string list =
   failwith "TODO"
 ;;
 
-(* [make_command ~summary ~f] is a helper function that builds a simple HTML parsing
-   command. It takes in a [summary] for the command, as well as a function [f] that
-   transforms a string (the HTML contents of a page) into a list of strings (the parsed
-   results from that HTML page). *)
+(* [make_command ~summary ~f] is a helper function that builds a simple HTML
+   parsing command. It takes in a [summary] for the command, as well as a
+   function [f] that transforms a string (the HTML contents of a page) into a
+   list of strings (the parsed results from that HTML page). *)
 let make_command ~summary ~f =
   let open Command.Let_syntax in
   Command.basic
@@ -49,12 +66,15 @@ let make_command ~summary ~f =
 ;;
 
 let print_title_command =
-  make_command ~summary:"print the title from an HTML page" ~f:(fun contents ->
-    [ get_title contents ])
+  make_command
+    ~summary:"print the title from an HTML page"
+    ~f:(fun contents -> [ get_title contents ])
 ;;
 
 let print_list_items_command =
-  make_command ~summary:"print all list items from an HTML page" ~f:get_list_items
+  make_command
+    ~summary:"print all list items from an HTML page"
+    ~f:get_list_items
 ;;
 
 let print_first_item_of_all_unordered_lists_command =
@@ -70,7 +90,9 @@ let print_first_item_of_second_unordered_list_command =
 ;;
 
 let print_bolded_text_command =
-  make_command ~summary:"print all bolded text in an HTML page" ~f:get_bolded_text
+  make_command
+    ~summary:"print all bolded text in an HTML page"
+    ~f:get_bolded_text
 ;;
 
 let command =

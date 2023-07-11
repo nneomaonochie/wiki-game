@@ -10,18 +10,7 @@ let get_credits contents : string list =
     |> to_list
     |> List.map ~f:(fun node -> texts node)
   in
-  let movie_titles = List.hd_exn movie_titles in
-  (* |> List.filter ~f:(fun a -> String.is_prefix
-
-     ~prefix:"ipc-primary-image-list-card__title" in *)
-  (*let movie_titles = List.map movie_titles ~f:to_string in let movie_titles
-    : string list list = List.map (movie_titles : element node list) ~f:texts
-    in [[move1 namel; movie 1 name 2]; [m2n1; m2n2]] concatenate within the
-    stuff bro *)
-
-  (* concatenate the stuff within the list *)
-  print_s [%message "" (movie_titles : string list)];
-  [ "" ]
+  List.concat movie_titles
 ;;
 
 (* |> List.dedup_and_sort (List.filter ~f:(fun string -> String.is_prefix

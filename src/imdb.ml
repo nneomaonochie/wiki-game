@@ -13,9 +13,6 @@ let get_credits contents : string list =
   List.concat movie_titles
 ;;
 
-(* |> List.dedup_and_sort (List.filter ~f:(fun string -> String.is_prefix
-   string ~prefix:"Known for:")) ~compare:String.compare*)
-
 let print_credits_command =
   let open Command.Let_syntax in
   Command.basic

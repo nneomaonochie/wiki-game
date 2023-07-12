@@ -1,18 +1,19 @@
 open! Core
 module City = String
 
-(* We separate out the [Highway] module to represent our highway system *)
 module Highway = struct
+  include String
+
+  let default = ""
+end
+
+(* We separate out the [Network] module to represent our highway system *)
+module Network = struct
   (* We can represent our highway system graph as a set of connections, where
      a connection represents a friendship between two people. *)
   module Connection = struct
     module T = struct
-      type t =
-        { name : string
-        ; start : City.t
-        ; dest : City.t
-        }
-      [@@deriving compare, sexp]
+      type t = City.t * Highway.t * City.t [@@deriving compare, sexp]
       (* the first index is the highway *)
     end
 
@@ -26,18 +27,20 @@ module Highway = struct
       let cities = String.split s ~on:',' in
       let highway = List.hd_exn cities in
       (* trying to remove head from rest of the city list *)
+      let cities = match cities with [] -> [] | _ :: city -> city in
       let cities =
-        match cities with
-        | [] -> []
-        | _ :: city -> Some (City.of_string city)
+        List.map cities ~f:(fun str ->
+          String.substr_replace_all str ~pattern:"." ~with_:""
+          |> String.substr_replace_all ~pattern:" " ~with_:"_")
       in
-      (* return back after you figure out the implementaoin*)
-      let tuple_connections : string * string =
-        List.map cities ~f:(fun city1 ->
-          List.iter cities ~f:(fun city2 ->
-            if !(String.equal city1 city2) then highway, city1, city2))
+      (* [Seattle,Portland,Sacramento,Los Angeles,San Diego] *)
+      let create_pairs (index : int) : string * string * string =
+        let city1 = List.nth_exn cities index in
+        let city2 = List.nth_exn cities (index + 1) in
+        city1, highway, city2
       in
-      tuple_connections
+      (* the list of city pairings that are connected to one another *)
+      List.range 0 (List.length cities - 1) |> List.map ~f:create_pairs
     ;;
   end
 
@@ -48,15 +51,9 @@ module Highway = struct
       In_channel.read_lines (File_path.to_string input_file)
       |> List.concat_map ~f:(fun s ->
            match Connection.of_string s with
-           | Some (a, b) ->
-             (* Friendships are mutual; a connection between a and b means we
-                should also consider the connection between b and a. *)
-             [ a, b; b, a ]
-           | None ->
-             printf
-               "ERROR: Could not parse line as connection; dropping. %s\n"
-               s;
-             [])
+           | [] ->
+             raise_s [%message "This is empty - not supposed to happen!"]
+           | c -> c)
     in
     Connection.Set.of_list connections
   ;;
@@ -75,9 +72,37 @@ let load_command =
             "FILE a file listing interstates and the cities they go through"
       in
       fun () ->
-        ignore (input_file : File_path.t);
-        failwith "TODO"]
+        let network = Network.of_file input_file in
+        printf !"%{sexp: Network.t}\n" network]
 ;;
+
+(* In order to visualize the social network, we use the ocamlgraph library to
+   create a [Graph] structure whose vertices are of type [Person.t].
+
+   The ocamlgraph library exposes lots of different ways to construct
+   different types of graphs. Take a look at
+   https://github.com/backtracking/ocamlgraph/blob/master/src/imperative.mli
+   for documentation on other types of graphs exposed by this API. *)
+module G = Graph.Imperative.Graph.ConcreteLabeled (City) (Highway)
+
+(* We extend our [Graph] structure with the [Dot] API so that we can easily
+   render constructed graphs. Documentation about this API can be found here:
+   https://github.com/backtracking/ocamlgraph/blob/master/src/dot.mli *)
+module Dot = Graph.Graphviz.Dot (struct
+  include G
+
+  (* These functions can be changed to tweak the appearance of the generated
+     graph. Check out the ocamlgraph graphviz API
+     (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli)
+     for examples of what values can be set here. *)
+  let edge_attributes _ = [ `Dir `None ]
+  let default_edge_attributes _ = []
+  let get_subgraph _ = None
+  let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
+  let vertex_name v = v
+  let default_vertex_attributes _ = []
+  let graph_attributes _ = []
+end)
 
 let visualize_command =
   let open Command.Let_syntax in
@@ -100,8 +125,15 @@ let visualize_command =
           ~doc:"FILE where to write generated graph"
       in
       fun () ->
-        ignore (input_file : File_path.t);
-        ignore (output_file : File_path.t);
+        let network = Network.of_file input_file in
+        let graph = G.create () in
+        Set.iter network ~f:(fun edge ->
+          (* [G.add_edge] auomatically adds the endpoints as vertices in the
+             graph if they don't already exist. *)
+          G.add_edge_e graph edge);
+        Dot.output_graph
+          (Out_channel.create (File_path.to_string output_file))
+          graph;
         printf !"Done! Wrote dot file to %{File_path}\n%!" output_file]
 ;;
 

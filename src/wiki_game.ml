@@ -48,18 +48,81 @@ let print_links_command =
         List.iter (get_linked_articles contents) ~f:print_endline]
 ;;
 
+(* In order to visualize the social network, we use the ocamlgraph library to
+   create a [Graph] structure whose vertices are of type [Person.t].
+
+   The ocamlgraph library exposes lots of different ways to construct
+   different types of graphs. Take a look at
+   https://github.com/backtracking/ocamlgraph/blob/master/src/imperative.mli
+   for documentation on other types of graphs exposed by this API. *)
+module G = Graph.Imperative.Graph.Concrete (String)
+
+(* We extend our [Graph] structure with the [Dot] API so that we can easily
+   render constructed graphs. Documentation about this API can be found here:
+   https://github.com/backtracking/ocamlgraph/blob/master/src/dot.mli *)
+module Dot = Graph.Graphviz.Dot (struct
+  include G
+
+  (* These functions can be changed to tweak the appearance of the generated
+     graph. Check out the ocamlgraph graphviz API
+     (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli)
+     for examples of what values can be set here. *)
+  let edge_attributes _ = [ `Dir `None ]
+  let default_edge_attributes _ = []
+  let get_subgraph _ = None
+  let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
+  let vertex_name v = v
+  let default_vertex_attributes _ = []
+  let graph_attributes _ = []
+end)
+
 (* [visualize] should explore all linked articles up to a distance of
    [max_depth] away from the given [origin] article, and output the result as
    a DOT file. It should use the [how_to_fetch] argument along with
    [File_fetcher] to fetch the articles so that the implementation can be
    tested locally on the small dataset in the ../resources/wiki directory. *)
 let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
-  ignore (max_depth : int);
-  ignore (origin : string);
-  ignore (output_file : File_path.t);
-  ignore (how_to_fetch : File_fetcher.How_to_fetch.t);
-  failwith "TODO"
+  (*let contents = File_fetcher.fetch_exn how_to_fetch ~resource:origin in *)
+  let graph = G.create () in
+  let has_visited = String.Hash_set.create () in
+  let rec traverse_links ~d ~origin =
+    (* we add the given origin link to a set of links that have been
+       visited *)
+    Hash_set.add has_visited origin;
+    (* these are a list of all the wiki links in the origin article *)
+    let link_descendents =
+      get_linked_articles
+        (File_fetcher.fetch_exn how_to_fetch ~resource:origin)
+    in
+    List.iter link_descendents ~f:(fun link ->
+      if (not (Hash_set.mem has_visited link)) && d > 0
+      then (
+        let get_link_name str =
+          let name = Lambda_soup_utilities.get_title str in
+          String.substr_replace_all name ~pattern:"- Wikipedia" ~with_:""
+          |> String.substr_replace_all ~pattern:"(biology)" ~with_:""
+        in
+        let a =
+          get_link_name
+            (File_fetcher.fetch_exn how_to_fetch ~resource:origin)
+        in
+        let b =
+          get_link_name (File_fetcher.fetch_exn how_to_fetch ~resource:link)
+        in
+        (* look at this later *)
+        print_s [%message "" (a : string)];
+        print_s [%message "" (b : string)];
+        G.add_edge_e graph (a, b);
+        traverse_links ~d:(d - 1) ~origin:link))
+  in
+  traverse_links ~d:max_depth ~origin;
+  Dot.output_graph
+    (Out_channel.create (File_path.to_string output_file))
+    graph
 ;;
+
+(* visualize command isnt working as intended, doesnt like () or other
+   importnat info, work on later *)
 
 let visualize_command =
   let open Command.Let_syntax in

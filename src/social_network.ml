@@ -138,6 +138,8 @@ let find_friend_group network ~person : Person.t list =
       then (
         Hash_set.add has_visited current_person;
         let adjacent_people =
+          (* matches friend in tuplet based on which person isnt the current
+             person *)
           List.map
             (List.filter network_list ~f:(fun (b1, b2) ->
                String.equal b1 current_person

@@ -26,21 +26,16 @@ module Network = struct
     let of_string s =
       let cities = String.split s ~on:',' in
       let highway = List.hd_exn cities in
-      (* trying to remove head from rest of the city list *)
-      let cities = match cities with [] -> [] | _ :: city -> city in
       let cities =
         List.map cities ~f:(fun str ->
           String.substr_replace_all str ~pattern:"." ~with_:""
           |> String.substr_replace_all ~pattern:" " ~with_:"_")
       in
-      (* [Seattle,Portland,Sacramento,Los Angeles,San Diego] *)
       let create_pairs (index : int) : string * string * string =
-        let city1 = List.nth_exn cities index in
-        let city2 = List.nth_exn cities (index + 1) in
-        city1, highway, city2
+        List.nth_exn cities index, highway, List.nth_exn cities (index + 1)
       in
       (* the list of city pairings that are connected to one another *)
-      List.range 0 (List.length cities - 1) |> List.map ~f:create_pairs
+      List.range 1 (List.length cities - 1) |> List.map ~f:create_pairs
     ;;
   end
 

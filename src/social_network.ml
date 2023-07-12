@@ -125,17 +125,9 @@ let visualize_command =
 (* [find_friend_group network ~person] returns a list of all people who are
    mutually connected to the provided [person] in the provided [network]. *)
 let find_friend_group network ~person : Person.t list =
-  (* essentially, you are finding a graph component and returning all
-     vertices in the component *)
-  (* supposed to use BFS to return a list *)
-
-  (* network is a Set of Connections [(Person.t * Person.t), (person.t *
-     person.t), ...] - functions as an edge list *)
   print_s [%message "" (network : Network.t)];
-  (* NE*)
   let network_list = Set.elements network in
-  (* let has_visited = Person.Hash_set.create () in *)
-  let has_visited : Person.t list = [] in
+  let has_visited = Person.Hash_set.create () in
   let need_to_visit = Queue.create () in
   Queue.enqueue need_to_visit person;
   let rec traverse () =
@@ -145,20 +137,27 @@ let find_friend_group network ~person : Person.t list =
       if not (Hash_set.mem has_visited current_person)
       then (
         Hash_set.add has_visited current_person;
-        (* if alpha is first one, return the second *)
         let adjacent_people =
-          List.map network_list ~f:(fun (p1, p2) ->
-            if String.equal p1 current_person
-            then p2
-            else if String.equal p2 current_person
-            then p1)
+          List.map
+            (List.filter network_list ~f:(fun (b1, b2) ->
+               String.equal b1 current_person
+               || String.equal b2 current_person))
+            ~f:(fun (p1, p2) ->
+              if String.equal p1 current_person then p2 else p1)
         in
         List.iter adjacent_people ~f:(fun next_person ->
           Queue.enqueue need_to_visit next_person));
       traverse ()
   in
   traverse ();
-  Person.Hash_set.to_list has_visited
+  let friends : string list = [] in
+  let friends =
+    Hash_set.fold has_visited ~init:friends ~f:(fun friends str ->
+      friends @ [ str ])
+  in
+  let friends = List.rev friends in
+  print_s [%message "" (friends : string list)];
+  friends
 ;;
 
 let find_friend_group_command =

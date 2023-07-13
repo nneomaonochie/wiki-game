@@ -1,28 +1,29 @@
 open! Core
 
-let get_row (r, _) = r
-let get_column (_, c) = c
+(* let get_row (r, _) = r let get_column (_, c) = c
 
-(* locates where the starting index is *)
-let find_start_cell maze_matrix =
+   locates where the starting index is *)
+let find_start_cell (maze_matrix : char array array) =
+  i have a char array array (maze.x.y) and i want to find the indexes of where the start cell is
+  use Array.find/map - i?
+
+
   (* traverse the list to find the start of the maze *)
-  let line_indexes = List.range 0 (List.length maze_matrix) in
+  (*let line_indexes = List.range 0 (List.length maze_matrix) in
   let start_row =
     List.find_exn line_indexes ~f:(fun index ->
       String.contains (List.nth_exn maze_matrix index) 'S')
   in
-  start_row, String.index_exn (List.nth_exn maze_matrix start_row) 'S'
+  start_row, String.index_exn (List.nth_exn maze_matrix start_row) 'S' *)
 ;;
 
 (* recursively traverses the maze to find the correct solution *)
-let rec traverse_maze maze_matrix current_cell =
-  (* if we visited a cell, we are going to put a '+' character *)
+(* let rec traverse_maze maze_matrix current_cell = (* if we visited a cell,
+   we are going to put a '+' character *)
 
-  (* we grab the string, replace with the '+' character, then replace this
-     NEW string in the prev. list *)
-  List.nth_exn maze_matrix (get_row current_cell)
-  |> String.substr_index ~pos:(get_column current_cell)
-;;
+   (* we grab the string, replace with the '+' character, then replace this
+   NEW string in the prev. list *) List.nth_exn maze_matrix (get_row
+   current_cell) |> String.substr_index ~pos:(get_column current_cell) ;; *)
 
 (* should we change the path or should we store visited cells? bc when we
    find a path, how will we know to turn the +'s back into #?*)
@@ -32,10 +33,13 @@ let rec traverse_maze maze_matrix current_cell =
 (* this method works with the assumption that the maze is not jagged and
    there are uniform number of rows and columns *)
 let solve_maze (maze : string) =
-  let maze_matrix = String.split maze ~on:'\n' in
-  (* in the int * int tuple, the first int is the index in the maze_matrix
-     where the start is and the second int is the index of the string where
-     the int is *)
+  let maze_matrix =
+    String.split maze ~on:'\n'
+    |> List.filter ~f:(fun str -> not (String.is_empty str))
+    |> List.map ~f:(fun line -> String.to_array line)
+    |> List.to_array
+  in
+  print_s [%message "" (maze_matrix : char array array)];
   let start_coord = find_start_cell maze_matrix in
   ""
 ;;
@@ -57,7 +61,7 @@ let solve_command =
         in
         let solution_text = solve_maze maze_text in
         ignore solution_text;
-        print_s [%message maze_text]]
+        print_s [%message ""]]
 ;;
 
 let command =

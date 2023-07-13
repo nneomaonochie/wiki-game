@@ -55,7 +55,7 @@ let print_links_command =
    different types of graphs. Take a look at
    https://github.com/backtracking/ocamlgraph/blob/master/src/imperative.mli
    for documentation on other types of graphs exposed by this API. *)
-module G = Graph.Imperative.Graph.Concrete (String)
+module G = Graph.Imperative.Digraph.Concrete (String)
 
 (* We extend our [Graph] structure with the [Dot] API so that we can easily
    render constructed graphs. Documentation about this API can be found here:
@@ -67,7 +67,7 @@ module Dot = Graph.Graphviz.Dot (struct
      graph. Check out the ocamlgraph graphviz API
      (https://github.com/backtracking/ocamlgraph/blob/master/src/graphviz.mli)
      for examples of what values can be set here. *)
-  let edge_attributes _ = [ `Dir `None ]
+  let edge_attributes _ = [ `Dir `Forward ]
   let default_edge_attributes _ = []
   let get_subgraph _ = None
   let vertex_attributes v = [ `Shape `Box; `Label v; `Fillcolor 1000 ]
@@ -100,7 +100,9 @@ let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
         let get_link_name str =
           let name = Lambda_soup_utilities.get_title str in
           String.substr_replace_all name ~pattern:"- Wikipedia" ~with_:""
-          |> String.substr_replace_all ~pattern:"(biology)" ~with_:""
+          |> String.substr_replace_all ~pattern:"(" ~with_:""
+          |> String.substr_replace_all ~pattern:")" ~with_:""
+          |> String.substr_replace_all ~pattern:" " ~with_:"_"
         in
         let a =
           get_link_name
@@ -109,9 +111,6 @@ let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
         let b =
           get_link_name (File_fetcher.fetch_exn how_to_fetch ~resource:link)
         in
-        (* look at this later *)
-        print_s [%message "" (a : string)];
-        print_s [%message "" (b : string)];
         G.add_edge_e graph (a, b);
         traverse_links ~d:(d - 1) ~origin:link))
   in

@@ -43,28 +43,45 @@ let rec traverse_maze
     && Coord.get_c new_cell >= 0
     && Coord.get_c new_cell < Array.length (Array.get maze_matrix 0)
   in
+  (* returns true if the cell we are in is not a wall *)
+  let open_path new_cell =
+    not
+      (Char.equal
+         maze_matrix.(Coord.get_r new_cell).(Coord.get_c new_cell)
+         '#')
+  in
   (* we add the current cell to the has_visited set and the current_path
      stack *)
   Stack.push current_path current_cell;
   (* check if we hit the exit - base case and we win! *)
+  (* let ref x =[] !x (this makes this a reference list) x := [5; 5;5] *)
+
+  (* try to make the Stack mutable on the outside so that they both return
+     units so everyone is happy *)
   if Char.equal
        maze_matrix.(Coord.get_r current_cell).(Coord.get_c current_cell)
-       'E'
+       'E' (* we dont need to send current path bc it is mutable*)
   then current_path
-  else (
-    (* we are testing one cell *)
-    let new_cell = Coord.add current_cell (List.hd_exn directions) in
-    Hash_set.add has_visited new_cell;
-    if in_bounds new_cell && not (Hash_set.mem has_visited new_cell)
-    then traverse_maze maze_matrix new_cell has_visited current_path
-    else
-      (* choose the next index in directions *)
-      current_path
-        (* if we try all 4 directions and we are flopping, we need to
-           backtrack *)
-        Stack.pop_exn
-        current_path)
+  else
+    (* if we eventually hit base case it will return a current_ath*)
+    List.iter directions ~f:(fun dir ->
+      let new_cell = Coord.add current_cell dir in
+      Hash_set.add has_visited new_cell;
+      if in_bounds new_cell
+         && open_path new_cell
+         && not (Hash_set.mem has_visited new_cell)
+      then traverse_maze maze_matrix new_cell has_visited current_path;
+      (* if we reach the end of directions all of it sucked and we must
+         backtrack *)
+      Stack.push current_path)
 ;;
+
+(* we are testing one cell let new_cell = Coord.add current_cell (List.hd_exn
+   directions) in Hash_set.add has_visited new_cell; if in_bounds new_cell &&
+   not (Hash_set.mem has_visited new_cell) then traverse_maze maze_matrix
+   new_cell has_visited current_path else (* choose the next index in
+   directions *) current_path (* if we try all 4 directions and we are
+   flopping, we need to backtrack *) Stack.pop_exn current_path)*)
 
 (* should i return a correct path? *)
 

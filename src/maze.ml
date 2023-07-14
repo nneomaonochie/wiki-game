@@ -15,7 +15,8 @@ module Coord = struct
   include Hashable.Make (T)
 end
 
-(* east, south, west, north *)
+(* a list of cells that will change a cell's current position to be one of
+   the directions listed: east, south, west, north *)
 let directions = [ 0, 1; 1, 0; 0, -1; -1, 0 ]
 
 (* locates where the starting index is *)
@@ -29,83 +30,55 @@ let find_start_cell (maze_matrix : char array array) =
   List.hd_exn (Hash_set.to_list start_set)
 ;;
 
-(* recursively traverses the maze to find the correct solution *)
-let rec traverse_maze
-  (maze_matrix : char array array)
-  current_cell
-  has_visited
-  current_path
-  =
-  (* returns true if a cell is in bounds *)
-  let in_bounds new_cell : bool =
-    Coord.get_r new_cell >= 0
-    && Coord.get_r new_cell < Array.length maze_matrix
-    && Coord.get_c new_cell >= 0
-    && Coord.get_c new_cell < Array.length (Array.get maze_matrix 0)
-  in
-  (* returns true if the cell we are in is not a wall *)
-  let open_path new_cell =
-    not
-      (Char.equal
-         maze_matrix.(Coord.get_r new_cell).(Coord.get_c new_cell)
-         '#')
-  in
-  (* we add the current cell to the current_path stack *)
-  Stack.push current_path current_cell;
-  (* check if we hit the exit - base case and we win! *)
-  (* let ref x =[] !x (this makes this a reference list) x := [5; 5;5] *)
-  let found_exit =
-    Char.equal
-      maze_matrix.(Coord.get_r current_cell).(Coord.get_c current_cell)
-      'E'
-  in
-  if found_exit
-  then
-    ()
-    (* current path is mutable so we will already have the solve_command
-       function *)
-  else (
-    (* if we eventually hit base case it will return a current_ath*)
+(* returns true if a cell is in bounds *)
+let in_bounds maze_matrix new_cell : bool =
+  Coord.get_r new_cell >= 0
+  && Coord.get_r new_cell < Array.length maze_matrix
+  && Coord.get_c new_cell >= 0
+  && Coord.get_c new_cell < Array.length (Array.get maze_matrix 0)
+;;
 
-    (* change to fold in order to stop the endless popping *)
-    let traverse_tracker = 0 in
-    let traverse_tracker =
-      List.fold
-        directions
-        ~init:(traverse_tracker, found_exit)
-        ~f:(fun (traverse_tracker, found_exit) dir ->
-        [%message
-          ""
-            (current_path : Coord.t Stack.t)
-            (traverse_tracker : int)
-            (dir : Coord.t)]
-        |> Sexp.to_string_hum
-        |> print_endline;
-        print_endline "-------------------------";
-        if not found_exit
-        then (
-          let new_cell = Coord.add current_cell dir in
-          if in_bounds new_cell
-             && open_path new_cell
-             && not (Hash_set.mem has_visited new_cell)
-          then (
-            let traverse_tracker = traverse_tracker + 1 in
-            Hash_set.add has_visited new_cell;
-            traverse_maze maze_matrix new_cell has_visited current_path;
-            (* its not stopping after we find the solution *)
-            traverse_tracker, found_exit)
-          else traverse_tracker, found_exit)
-        else traverse_tracker, found_exit)
+(* returns true if the cell we are in is not a wall *)
+let open_path maze_matrix new_cell =
+  not
+    (Char.equal
+       maze_matrix.(Coord.get_r new_cell).(Coord.get_c new_cell)
+       '#')
+;;
+
+(* recursively traverse through maze to find the path that connects us from
+   start to end *)
+let dfs maze_matrix root =
+  let rec traverse curr_cell path =
+    (* returns a list of other positions we can traverse from the current
+       cell *)
+    let get_children parent_cell =
+      (* creates an initial list of cells in the E, S, W, N direction of the
+         current cell *)
+      List.map directions ~f:(fun dir -> Coord.add parent_cell dir)
+      (* narrows down list to ensure other cells are in bounds, are not a
+         wall, and have not been previously visted*)
+      |> List.filter ~f:(fun child_cell ->
+           in_bounds maze_matrix child_cell
+           && open_path maze_matrix child_cell
+           && not
+                (List.exists path ~f:(fun cell ->
+                   Coord.equal cell child_cell)))
     in
-    (* if we reach the end of directions all of it sucked and we must
-       backtrack *)
-
-    (* i didnt really back track, i just kept popping off *)
-    if traverse_tracker >= List.length directions
+    (* if this cell is an exit cell *)
+    if Char.equal
+         maze_matrix.(Coord.get_r curr_cell).(Coord.get_c curr_cell)
+         'E'
     then (
-      let pop_cell = Stack.pop_exn current_path in
-      ignore pop_cell;
-      ()))
+      let path = curr_cell :: path in
+      Some path)
+    else
+      (* returns a list of children we can recurse through *)
+      List.map (get_children curr_cell) ~f:(fun child ->
+        traverse child (curr_cell :: path))
+      |> List.find_map ~f:(fun path -> path)
+  in
+  traverse root []
 ;;
 
 (* takes in a maze represented as a string and returns the solution set as a
@@ -120,12 +93,12 @@ let solve_maze (maze : string) =
     |> List.to_array
   in
   let start_coord = find_start_cell maze_matrix in
-  let has_visited = Coord.Hash_set.create () in
-  let current_path = Stack.create () in
-  (* pushed the starting cell in the has_visited set *)
-  Hash_set.add has_visited start_coord;
-  traverse_maze maze_matrix start_coord has_visited current_path;
-  current_path
+  let path_list : Coord.t list =
+    match dfs maze_matrix start_coord with
+    | None -> []
+    | Some path -> List.rev path
+  in
+  path_list
 ;;
 
 let solve_command =
@@ -144,24 +117,9 @@ let solve_command =
           In_channel.read_all (File_path.to_string input_file)
         in
         let solution_stack = solve_maze maze_text in
-        print_s [%message "" (solution_stack : Coord.t Base.Stack.t)]]
+        print_s [%message "" (solution_stack : Coord.t list)]]
 ;;
 
 let command =
   Command.group ~summary:"maze commands" [ "solve", solve_command ]
-;;
-
-let dfs root =
-  let rec f node path =
-    if is_end
-         node (* doesnt have current node so put it in before returning *)
-    then Some path
-    else
-      (* make sure get children ONLY returns valid cells (in bounds, not
-         visited [things in the path so we dont go backwards], and not a
-         wall)*)
-      List.map (get_children node) ~f:(fun child -> f child (node :: path))
-      |> List.find_map ~f:(fun path -> path)
-  in
-  f root []
 ;;

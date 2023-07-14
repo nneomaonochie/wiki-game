@@ -82,7 +82,6 @@ end)
    [File_fetcher] to fetch the articles so that the implementation can be
    tested locally on the small dataset in the ../resources/wiki directory. *)
 let visualize ?(max_depth = 3) ~origin ~output_file ~how_to_fetch () : unit =
-  (*let contents = File_fetcher.fetch_exn how_to_fetch ~resource:origin in *)
   let graph = G.create () in
   let has_visited = String.Hash_set.create () in
   let rec traverse_links ~d ~origin =
@@ -158,11 +157,31 @@ let visualize_command =
    [max_depth] is useful to limit the time the program spends exploring the
    graph. *)
 let find_path ?(max_depth = 3) ~origin ~destination ~how_to_fetch () =
-  ignore (max_depth : int);
-  ignore (origin : string);
-  ignore (destination : string);
-  ignore (how_to_fetch : File_fetcher.How_to_fetch.t);
-  failwith "TODO"
+  (*let has_visited = String.Hash_set.create () in*)
+  let rec traverse_links ~d ~curr_link path : string list option =
+    (* Hash_set.add has_visited curr_link; *)
+    if String.equal curr_link destination
+    then (
+      let path = curr_link :: path in
+      Some path)
+    else (
+      let link_descendents =
+        get_linked_articles
+          (File_fetcher.fetch_exn how_to_fetch ~resource:origin)
+        |> List.filter ~f:(fun link ->
+             d > 0
+             && not
+                  (List.exists path ~f:(fun prev_link ->
+                     String.equal link prev_link))
+             (*not (Hash_set.mem has_visited link)*))
+      in
+      (*print_s [%message "origin: " curr_link (link_descendents : string
+        list) (path : string list)]; *)
+      List.map link_descendents ~f:(fun link ->
+        traverse_links ~d:(d - 1) ~curr_link:link (curr_link :: path))
+      |> List.find_map ~f:(fun path -> path))
+  in
+  traverse_links ~d:max_depth ~curr_link:origin []
 ;;
 
 let find_path_command =
@@ -185,7 +204,7 @@ let find_path_command =
       fun () ->
         match find_path ~max_depth ~origin ~destination ~how_to_fetch () with
         | None -> print_endline "No path found!"
-        | Some trace -> List.iter trace ~f:print_endline]
+        | Some trace -> List.iter (List.rev trace) ~f:print_endline]
 ;;
 
 let command =

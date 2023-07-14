@@ -50,40 +50,39 @@ let rec traverse_maze
          maze_matrix.(Coord.get_r new_cell).(Coord.get_c new_cell)
          '#')
   in
-  (* we add the current cell to the has_visited set and the current_path
-     stack *)
+  (* we add the current cell to the current_path stack *)
   Stack.push current_path current_cell;
   (* check if we hit the exit - base case and we win! *)
   (* let ref x =[] !x (this makes this a reference list) x := [5; 5;5] *)
-
-  (* try to make the Stack mutable on the outside so that they both return
-     units so everyone is happy *)
   if Char.equal
        maze_matrix.(Coord.get_r current_cell).(Coord.get_c current_cell)
-       'E' (* we dont need to send current path bc it is mutable*)
-  then current_path
-  else
+       'E'
+  then
+    ()
+    (* current path is mutable so we will already have the solve_command
+       function *)
+  else (
     (* if we eventually hit base case it will return a current_ath*)
+
+    (* change to fold in order to stop the endless popping *)
     List.iter directions ~f:(fun dir ->
+      print_s [%message "" (has_visited : Coord.Hash_set.t)];
+      print_s [%message "" (current_path : Coord.t Base.Stack.t)];
       let new_cell = Coord.add current_cell dir in
-      Hash_set.add has_visited new_cell;
       if in_bounds new_cell
          && open_path new_cell
          && not (Hash_set.mem has_visited new_cell)
-      then traverse_maze maze_matrix new_cell has_visited current_path;
-      (* if we reach the end of directions all of it sucked and we must
-         backtrack *)
-      Stack.push current_path)
+      then (
+        Hash_set.add has_visited new_cell;
+        traverse_maze maze_matrix new_cell has_visited current_path));
+    (* if we reach the end of directions all of it sucked and we must
+       backtrack *)
+
+    (* i didnt really back track, i just kept popping off *)
+    let pop_cell = Stack.pop_exn current_path in
+    ignore pop_cell;
+    ())
 ;;
-
-(* we are testing one cell let new_cell = Coord.add current_cell (List.hd_exn
-   directions) in Hash_set.add has_visited new_cell; if in_bounds new_cell &&
-   not (Hash_set.mem has_visited new_cell) then traverse_maze maze_matrix
-   new_cell has_visited current_path else (* choose the next index in
-   directions *) current_path (* if we try all 4 directions and we are
-   flopping, we need to backtrack *) Stack.pop_exn current_path)*)
-
-(* should i return a correct path? *)
 
 (* takes in a maze represented as a string and returns the solution set as a
    string *)
@@ -101,10 +100,8 @@ let solve_maze (maze : string) =
   let current_path = Stack.create () in
   (* pushed the starting cell in the has_visited set *)
   Hash_set.add has_visited start_coord;
-  let solution_path =
-    traverse_maze maze_matrix start_coord has_visited current_path
-  in
-  ""
+  traverse_maze maze_matrix start_coord has_visited current_path;
+  current_path
 ;;
 
 let solve_command =
@@ -122,9 +119,8 @@ let solve_command =
         let maze_text =
           In_channel.read_all (File_path.to_string input_file)
         in
-        let solution_text = solve_maze maze_text in
-        ignore solution_text;
-        print_s [%message ""]]
+        let solution_stack = solve_maze maze_text in
+        print_s [%message "" (solution_stack : Coord.t Base.Stack.t)]]
 ;;
 
 let command =

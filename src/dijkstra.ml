@@ -143,6 +143,14 @@ module Nodes = struct
   let next_node t : (Node_id.t * (int * Node_id.t)) option =
     (* find the nodes that are labelled to do - see which ones have the
        smallest distance and return that *)
+    let todo_nodes =
+      match
+        List.filter t ~f:(fun node ->
+          match state t node with Node.State.Todo -> true | _ -> false)
+      with
+      | None -> []
+      | Some list -> list
+    in
     None
   ;;
 

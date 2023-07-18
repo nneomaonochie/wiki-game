@@ -143,15 +143,17 @@ module Nodes = struct
   let next_node t : (Node_id.t * (int * Node_id.t)) option =
     (* find the nodes that are labelled to do - see which ones have the
        smallest distance and return that *)
-    let todo_nodes =
-      match
-        List.filter t ~f:(fun node ->
-          match state t node with Node.State.Todo -> true | _ -> false)
-      with
-      | None -> []
-      | Some list -> list
+    let node_key_list = Map.keys t in
+    (* we only keep nodes that we havent processed yet *)
+    let todo_nodes : Node_id.t list =
+        List.filter node_key_list ~f:(fun node ->
+          match state t node with | Node.State.Todo node -> true | _ -> false)
     in
-    None
+    let non_via_node = Node_id.create in
+    let combo = (Int.max_value, non_via_node) in (* the original node with the distance thats in one of its states *)
+    match todo_nodes with
+      | [] -> None (* returns the node-distance combo with the lowest distance *)
+      | list -> Some (List.fold list ~init:(Int.max_value, non_via_node) ~f:(fun node -> ))
   ;;
 
   let%expect_test ("next_node" [@tags "disabled"]) =
